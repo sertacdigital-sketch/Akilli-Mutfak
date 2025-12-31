@@ -70,41 +70,41 @@ export default function App() {
             {/* SOL MENÜ (SIDEBAR) */}
             <aside className="w-64 bg-[#0F172A] border-r border-white/5 flex flex-col shrink-0 z-20 shadow-2xl">
 
-                {/* LOGO ALANI - TAM HİZALANMIŞ VE BOYUTLANDIRILMIŞ */}
-                <div className="p-6 border-b border-white/5 mb-4">
-                    <div className="flex items-center gap-3">
-                        {/* İkon boyutu sabitlendi */}
-                        <div className="bg-indigo-600 p-2 rounded-xl shrink-0 shadow-lg shadow-indigo-600/30">
-                            <ChefHat className="text-white w-5 h-5" />
+                {/* LOGO ALANI - TAM HİZALANMIŞ */}
+                <div className="h-16 flex items-center px-6 border-b border-white/5 mb-4 shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        {/* İkon boyutu küçültüldü */}
+                        <div className="bg-indigo-600 p-1.5 rounded-lg shrink-0 shadow-lg shadow-indigo-600/30">
+                            <ChefHat className="text-white w-4 h-4" />
                         </div>
 
-                        {/* Yazı boyutu ve hizalaması Sidebar'a göre ayarlandı */}
-                        <div className="flex flex-col min-w-0">
-                            <h1 className="text-sm font-black text-white tracking-wider uppercase italic leading-none truncate">
+                        {/* Yazı boyutu ve taşma koruması */}
+                        <div className="flex flex-col min-w-0 overflow-hidden">
+                            <h1 className="text-[12px] font-black text-white tracking-[0.1em] uppercase italic leading-none truncate">
                                 MUTFAK<span className="text-indigo-400">PRO</span>
                             </h1>
-                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1 whitespace-nowrap">
+                            <span className="text-[8px] text-slate-500 font-bold uppercase tracking-[0.15em] mt-1 truncate">
                                 STOK YÖNETİMİ
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* NAVİGASYON - LOGOYLA AYNI PADİNG DEĞERİNDE (px-4) */}
-                <nav className="flex-1 px-4 space-y-1.5">
-                    <button onClick={() => setAktifSekme('liste')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all text-[11px] uppercase tracking-wider ${aktifSekme === 'liste' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
+                {/* NAVİGASYON - LOGOYLA AYNI PADİNG (px-4) */}
+                <nav className="flex-1 px-4 space-y-1">
+                    <button onClick={() => setAktifSekme('liste')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all text-[11px] uppercase tracking-wider ${aktifSekme === 'liste' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}>
                         <List size={18} /> Envanter
                     </button>
-                    <button onClick={() => setAktifSekme('ayarlar')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all text-[11px] uppercase tracking-wider ${aktifSekme === 'ayarlar' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}>
+                    <button onClick={() => setAktifSekme('ayarlar')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all text-[11px] uppercase tracking-wider ${aktifSekme === 'ayarlar' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}>
                         <Settings size={18} /> Kütüphane
                     </button>
                 </nav>
 
-                {/* ALT DURUM */}
+                {/* ALT DURUM ALANI */}
                 <div className="p-4 border-t border-white/5">
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900/50 border border-white/5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Sistem Aktif</span>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900/40 border border-white/5">
+                        <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest">Sistem Aktif</span>
                     </div>
                 </div>
             </aside>
