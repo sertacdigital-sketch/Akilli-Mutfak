@@ -146,22 +146,47 @@ export default function App() {
                             </div>
                         </div>
 
-                        {/* KARTLAR ALANI - BURASI ARTIK TÜM EKRANA YAYILIYOR */}
+                        Harika bir fikir, özellikle çok fazla kart olduğunda ikonların neyi temsil ettiğini görmek kullanımı çok kolaylaştırır.
+
+                        Modern arayüzlerde bu tür bilgilendirmeler için Tooltip (İpucu Balonu) kullanılır. Kartların içindeki ikonların üzerine gelindiğinde (hover) "Dondurucu", "Buzdolabı" veya "Kiler" yazısı çıkacak şekilde kodu güncelledim.
+
+                        İşte ikonların üzerine "title" özelliği eklenmiş ve görsel olarak daha belirgin hale getirilmiş güncel kart yapısı:
+
+                        JavaScript
+
+                        {/* KARTLAR ALANI - Tooltip Eklenmiş Hali */}
                         <div className="flex-1">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
                                 {envanter.filter(u => u.gida_ad.toLowerCase().includes(aramaTerimi.toLowerCase())).map(u => {
                                     const gun = Math.ceil((new Date(u.skt) - new Date().setHours(0, 0, 0, 0)) / 86400000);
                                     const kritik = gun <= 3;
+
+                                    // Dinamik İkon ve İpucu Belirleme
+                                    const SaklamaIkona = () => {
+                                        if (u.saklama_yeri === 'buzluk') return { icon: <Snowflake size={20} />, label: "Dondurucu / Buzluk", color: "bg-blue-500/10 text-blue-400" };
+                                        if (u.saklama_yeri === 'dolap') return { icon: <Thermometer size={20} />, label: "Buzdolabı", color: "bg-indigo-500/10 text-indigo-400" };
+                                        return { icon: <Sun size={20} />, label: "Kiler / Oda Sıcaklığı", color: "bg-orange-500/10 text-orange-400" };
+                                    };
+
+                                    const setup = SaklamaIkona();
+
                                     return (
                                         <div key={u.id} className={`group p-6 rounded-[28px] border transition-all duration-300 ${kritik ? 'bg-rose-500/5 border-rose-500/20' : 'bg-[#0F172A] border-white/5 shadow-xl hover:translate-y-[-4px]'}`}>
                                             <div className="flex justify-between items-start mb-6">
-                                                <div className={`p-3 rounded-2xl ${u.saklama_yeri === 'buzluk' ? 'bg-blue-500/10 text-blue-400' : u.saklama_yeri === 'dolap' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-orange-500/10 text-orange-400'}`}>
-                                                    {u.saklama_yeri === 'buzluk' ? <Snowflake size={20} /> : u.saklama_yeri === 'dolap' ? <Thermometer size={20} /> : <Sun size={20} />}
+
+                                                {/* İkon ve Tooltip Alanı */}
+                                                <div
+                                                    title={setup.label}
+                                                    className={`p-3 rounded-2xl cursor-help transition-transform hover:scale-110 ${setup.color}`}
+                                                >
+                                                    {setup.icon}
                                                 </div>
-                                                <button onClick={() => { if (window.confirm('Kayıt silinsin mi?')) supabase.from('mutfak_envanteri').delete().eq('id', u.id).then(verileriGetir); }} className="p-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-700 hover:text-rose-500"><Trash size={18} /></button>
+
+                                                <button onClick={() => { if (window.confirm('Kayıt silinsin mi?')) supabase.from('mutfak_envanteri').delete().eq('id', u.id).then(verileriGetir); }} className="p-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-700 hover:text-rose-500"><Trash2 size={18} /></button>
                                             </div>
 
                                             <h4 className="font-black text-white uppercase tracking-tight text-[13px] mb-2 truncate">{u.gida_ad}</h4>
+
                                             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase mb-8">
                                                 <span className="bg-slate-950 px-2 py-0.5 rounded-md border border-white/5">{u.miktar}</span>
                                                 <span className="tracking-widest opacity-60">{u.saklama_yeri}</span>
