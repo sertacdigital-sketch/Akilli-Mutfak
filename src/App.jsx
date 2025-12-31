@@ -1,334 +1,224 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿
+import React, { useState, useEffect } from 'react';
+import { supabase } from './lib/supabaseClient'; // Yolunu kontrol et
 import {
-    Plus, Trash2, Calendar, ChefHat,
-    Snowflake, Sun, Thermometer, Save,
-    Package, Database, Search, AlertCircle
+    Plus, Trash2, Calendar, AlertTriangle, CheckCircle,
+    Pencil, Save, X, Snowflake, Sun,
+    Thermometer, ChefHat, Package, ListFilter, Settings, ChevronDown
 } from 'lucide-react';
 
-/**
- * NOT: Ortam kısıtlamaları nedeniyle paket çözünürlüğü hatalarını önlemek adına 
- * Supabase istemcisini CDN üzerinden dinamik olarak yüklüyoruz.
- */
-
 export default function App() {
-    const [supabase, setSupabase] = useState(null);
+    // Veritabanı States
+    const [gidaVeritabani, setGidaVeritabani] = useState({});
+    const [urunler, setUrunler] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [kutuphane, setKutuphane] = useState([]);
-    const [envanter, setEnvanter] = useState([]);
-    const [sekme, setSekme] = useState('envanter');
 
-    // Yapılandırma - Bu değerlerin boş olması durumunda kullanıcıya uyarı gösterilir
-    const SUPABASE_URL = "";
-    const SUPABASE_KEY = "";
-
-    // Form State'leri
-    const [secilenGida, setSecilenGida] = useState("");
+    // Form States
+    const [secilenUrunKey, setSecilenUrunKey] = useState("");
+    const [saklamaYeri, setSaklamaYeri] = useState("dolap");
     const [miktar, setMiktar] = useState("");
-    const [konum, setKonum] = useState("dolap");
-    const [yeniGida, setYeniGida] = useState({ ad: '', birim: 'Adet', dolap: '', buzluk: '', kiler: '' });
+    const [manuelTarih, setManuelTarih] = useState("");
+    const [aktifSekme, setAktifSekme] = useState('liste');
 
-    useEffect(() => {
-        // Supabase SDK'sını CDN üzerinden yükle
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-        script.async = true;
-        script.onload = () => {
-            if (window.supabase && SUPABASE_URL && SUPABASE_KEY) {
-                const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                setSupabase(client);
-            } else {
-                setLoading(false);
-            }
-        };
-        document.body.appendChild(script);
+    // Kütüphane Ekleme States
+    const [yeniGida, setYeniGida] = useState({ ad: "", birim: "Adet", dolap: "", buzluk: "", kiler: "" });
 
-        return () => {
-            document.body.removeChild(script);
-        };
-    }, []);
-
-    useEffect(() => {
-        if (supabase) {
-            verileriGetir();
-        }
-    }, [supabase]);
-
-    async function verileriGetir() {
+    // --- VERİ ÇEKME ---
+    const verileriGetir = async () => {
         setLoading(true);
         try {
-            const [libRes, invRes] = await Promise.all([
-                supabase.from('gida_kutuphanesi').select('*').order('ad'),
-                supabase.from('mutfak_envanteri').select('*').order('skt')
-            ]);
+            // Kütüphaneyi Çek
+            const { data: kutuphaneData } = await supabase.from('gida_kutuphanesi').select('*');
+            const dbObj = {};
+            kutuphaneData?.forEach(item => {
+                dbObj[item.ad] = item;
+            });
+            setGidaVeritabani(dbObj);
 
-            if (libRes.data) setKutuphane(libRes.data);
-            if (invRes.data) setEnvanter(invRes.data);
-        } catch (err) {
-            console.error("Veri çekme hatası:", err);
-        } finally {
-            setLoading(false);
+            // Envanteri Çek
+            const { data: envanterData } = await supabase
+                .from('mutfak_envanteri')
+                .select('*')
+                .order('skt', { ascending: true });
+            setUrunler(envanterData || []);
+        } catch (error) {
+            console.error("Yükleme hatası:", error);
         }
-    }
+        setLoading(false);
+    };
 
-    async function stokEkle(e) {
+    useEffect(() => { verileriGetir(); }, []);
+
+    // --- OTOMATİK SKT HESAPLAMA ---
+    useEffect(() => {
+        if (secilenUrunKey && gidaVeritabani[secilenUrunKey]) {
+            const gida = gidaVeritabani[secilenUrunKey];
+            const gunEkle = saklamaYeri === 'dolap' ? gida.dolap_omru :
+                saklamaYeri === 'buzluk' ? gida.buzluk_omru : gida.kiler_omru;
+
+            if (gunEkle) {
+                const d = new Date();
+                d.setDate(d.getDate() + parseInt(gunEkle));
+                setManuelTarih(d.toISOString().split('T')[0]);
+            }
+        }
+    }, [secilenUrunKey, saklamaYeri]);
+
+    // --- ENVANTER İŞLEMLERİ ---
+    const urunEkle = async (e) => {
         e.preventDefault();
-        if (!supabase) return;
+        if (!secilenUrunKey || !manuelTarih) return;
 
-        const gida = kutuphane.find(item => item.ad === secilenGida);
-        if (!gida) return;
-
-        const omur = konum === 'dolap' ? gida.dolap_omru : (konum === 'buzluk' ? gida.buzluk_omru : gida.kiler_omru);
-        const sktTarihi = new Date();
-        sktTarihi.setDate(sktTarihi.getDate() + (parseInt(omur) || 7));
-
-        const { error } = await supabase.from('mutfak_envanteri').insert([{
-            gida_ad: secilenGida,
-            miktar: `${miktar} ${gida.birim}`,
-            saklama_yeri: konum,
-            skt: sktTarihi.toISOString().split('T')[0]
-        }]);
+        const { data, error } = await supabase.from('mutfak_envanteri').insert([{
+            gida_ad: secilenUrunKey,
+            miktar: `${miktar || 1} ${gidaVeritabani[secilenUrunKey].birim}`,
+            saklama_yeri: saklamaYeri,
+            skt: manuelTarih
+        }]).select();
 
         if (!error) {
-            setMiktar("");
-            setSecilenGida("");
-            verileriGetir();
+            setUrunler([...urunler, data[0]]);
+            setSecilenUrunKey(""); setMiktar("");
         }
-    }
+    };
 
-    async function rehberEkle(e) {
+    const urunSil = async (id) => {
+        const { error } = await supabase.from('mutfak_envanteri').delete().eq('id', id);
+        if (!error) setUrunler(urunler.filter(u => u.id !== id));
+    };
+
+    // --- KÜTÜPHANE İŞLEMLERİ ---
+    const kütüphaneyeEkle = async (e) => {
         e.preventDefault();
-        if (!supabase) return;
-
         const { error } = await supabase.from('gida_kutuphanesi').insert([{
             ad: yeniGida.ad,
             birim: yeniGida.birim,
-            dolap_omru: parseInt(yeniGida.dolap) || 0,
-            buzluk_omru: parseInt(yeniGida.buzluk) || 0,
-            kiler_omru: parseInt(yeniGida.kiler) || 0
+            dolap_omru: yeniGida.dolap || null,
+            buzluk_omru: yeniGida.buzluk || null,
+            kiler_omru: yeniGida.kiler || null
         }]);
 
         if (!error) {
-            setYeniGida({ ad: '', birim: 'Adet', dolap: '', buzluk: '', kiler: '' });
             verileriGetir();
+            setYeniGida({ ad: "", birim: "Adet", dolap: "", buzluk: "", kiler: "" });
         }
-    }
-
-    async function urunSil(id) {
-        if (!supabase) return;
-        const { error } = await supabase.from('mutfak_envanteri').delete().eq('id', id);
-        if (!error) verileriGetir();
-    }
-
-    const gunFarki = (tarih) => {
-        const fark = new Date(tarih) - new Date().setHours(0, 0, 0, 0);
-        return Math.ceil(fark / (1000 * 60 * 60 * 24));
     };
 
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-                <div className="bg-white p-8 rounded-[32px] border border-rose-100 shadow-xl max-w-md text-center">
-                    <AlertCircle className="w-16 h-16 text-rose-500 mx-auto mb-4" />
-                    <h2 className="text-xl font-black text-slate-800 mb-2">Kurulum Gerekli</h2>
-                    <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-                        Lütfen kodun başındaki <strong>SUPABASE_URL</strong> ve <strong>SUPABASE_KEY</strong> değişkenlerini kendi Supabase bilgilerinizle güncelleyin.
-                    </p>
-                </div>
-            </div>
-        );
-    }
+    const kalanGun = (t) => Math.ceil((new Date(t) - new Date().setHours(0, 0, 0, 0)) / 86400000);
 
-    if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <div className="flex flex-col items-center gap-4">
-                <Database className="w-10 h-10 text-indigo-600 animate-pulse" />
-                <p className="text-slate-400 font-bold text-xs tracking-widest uppercase">Mutfak Yükleniyor...</p>
-            </div>
-        </div>
-    );
+    if (loading) return <div className="h-screen flex items-center justify-center font-bold text-indigo-600">Sistem Yükleniyor...</div>;
 
     return (
-        <div className="min-h-screen bg-[#FDFDFD] text-slate-800 font-sans">
-            <nav className="bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-50 shadow-sm">
-                <div className="max-w-6xl mx-auto flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-100">
-                            <ChefHat size={20} />
-                        </div>
-                        <span className="font-black text-xl tracking-tight">Mutfak<span className="text-indigo-600">Base</span></span>
+        <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900">
+            {/* Header */}
+            <header className="bg-white border-b border-slate-100 px-8 py-5 flex justify-between items-center sticky top-0 z-50">
+                <div className="flex items-center gap-4">
+                    <div className="bg-indigo-600 p-2.5 rounded-2xl">
+                        <ChefHat className="w-7 h-7 text-white" />
                     </div>
-                    <div className="flex bg-slate-100 p-1 rounded-xl">
-                        <button
-                            onClick={() => setSekme('envanter')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${sekme === 'envanter' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                        >
-                            MUTFAĞIM
-                        </button>
-                        <button
-                            onClick={() => setSekme('rehber')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${sekme === 'rehber' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                        >
-                            GIDA REHBERİ
-                        </button>
-                    </div>
+                    <h1 className="text-xl font-bold">Mutfak Paneli v2</h1>
                 </div>
-            </nav>
+                <nav className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+                    <button onClick={() => setAktifSekme('liste')} className={`px-4 py-2 rounded-lg text-sm font-bold ${aktifSekme === 'liste' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>Envanter</button>
+                    <button onClick={() => setAktifSekme('ayarlar')} className={`px-4 py-2 rounded-lg text-sm font-bold ${aktifSekme === 'ayarlar' ? 'bg-white shadow text-indigo-600' : 'text-slate-500'}`}>Kütüphane</button>
+                </nav>
+            </header>
 
-            <main className="max-w-6xl mx-auto p-6 md:p-10">
-                {sekme === 'envanter' ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                        <div className="lg:col-span-4">
-                            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm sticky top-24">
-                                <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
-                                    <Plus size={18} className="text-indigo-600" /> Ürün Ekle
-                                </h2>
-                                <form onSubmit={stokEkle} className="space-y-4">
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Gıda Adı</label>
-                                        <select
-                                            className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none focus:ring-2 focus:ring-indigo-100"
-                                            value={secilenGida}
-                                            onChange={e => setSecilenGida(e.target.value)}
-                                            required
-                                        >
-                                            <option value="">Seçiniz...</option>
-                                            {kutuphane.map(g => <option key={g.id} value={g.ad}>{g.ad}</option>)}
-                                        </select>
+            <main className="p-8">
+                {aktifSekme === 'liste' && (
+                    <div className="flex flex-col lg:flex-row gap-8">
+                        {/* Sol Form */}
+                        <div className="w-full lg:w-80 shrink-0">
+                            <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm">
+                                <h2 className="text-lg font-bold mb-4">Stok Ekle</h2>
+                                <form onSubmit={urunEkle} className="space-y-4">
+                                    <select
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-semibold"
+                                        value={secilenUrunKey}
+                                        onChange={(e) => setSecilenUrunKey(e.target.value)}
+                                    >
+                                        <option value="">Ürün Seç...</option>
+                                        {Object.keys(gidaVeritabani).map(k => <option key={k} value={k}>{k}</option>)}
+                                    </select>
+
+                                    <div className="flex bg-slate-100 p-1 rounded-xl">
+                                        {['dolap', 'buzluk', 'kiler'].map(t => (
+                                            <button key={t} type="button" onClick={() => setSaklamaYeri(t)} className={`flex-1 py-2 text-[10px] font-bold uppercase rounded-lg ${saklamaYeri === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>{t}</button>
+                                        ))}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Miktar</label>
-                                            <input
-                                                type="number"
-                                                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none"
-                                                value={miktar}
-                                                onChange={e => setMiktar(e.target.value)}
-                                                required
-                                                placeholder="0"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Konum</label>
-                                            <select
-                                                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none"
-                                                value={konum}
-                                                onChange={e => setKonum(e.target.value)}
-                                            >
-                                                <option value="dolap">Dolap</option>
-                                                <option value="buzluk">Buzluk</option>
-                                                <option value="kiler">Kiler</option>
-                                            </select>
-                                        </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input type="number" placeholder="Miktar" className="p-3 bg-slate-50 border border-slate-200 rounded-xl" value={miktar} onChange={e => setMiktar(e.target.value)} />
+                                        <input type="date" className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs font-bold" value={manuelTarih} onChange={e => setManuelTarih(e.target.value)} />
                                     </div>
-                                    <button className="w-full bg-slate-900 text-white py-3.5 rounded-xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
-                                        <Save size={16} /> Veritabanına Kaydet
+
+                                    <button className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2">
+                                        <Plus size={18} /> Kaydet
                                     </button>
                                 </form>
                             </div>
                         </div>
 
-                        <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-4 h-fit">
-                            {envanter.map(item => {
-                                const kalan = gunFarki(item.skt);
-                                const kritik = kalan <= 2;
+                        {/* Sağ Liste */}
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {urunler.map(u => {
+                                const gun = kalanGun(u.skt);
                                 return (
-                                    <div key={item.id} className={`bg-white p-5 rounded-3xl border ${kritik ? 'border-rose-100' : 'border-slate-100'} shadow-sm hover:shadow-md transition-all group`}>
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className={`p-3 rounded-2xl ${item.saklama_yeri === 'buzluk' ? 'bg-blue-50 text-blue-500' : (item.saklama_yeri === 'dolap' ? 'bg-emerald-50 text-emerald-500' : 'bg-amber-50 text-amber-500')}`}>
-                                                {item.saklama_yeri === 'buzluk' ? <Snowflake size={20} /> : (item.saklama_yeri === 'dolap' ? <Thermometer size={20} /> : <Sun size={20} />)}
+                                    <div key={u.id} className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md transition-all relative group">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className={`p-3 rounded-xl ${gun <= 3 ? 'bg-rose-50 text-rose-500' : 'bg-indigo-50 text-indigo-600'}`}>
+                                                {u.saklama_yeri === 'buzluk' ? <Snowflake size={20} /> : <Thermometer size={20} />}
                                             </div>
-                                            <button onClick={() => urunSil(item.id)} className="text-slate-200 hover:text-rose-500 transition-colors">
-                                                <Trash2 size={16} />
+                                            <button onClick={() => urunSil(u.id)} className="opacity-0 group-hover:opacity-100 p-2 text-slate-300 hover:text-rose-500 transition-all">
+                                                <Trash2 size={18} />
                                             </button>
                                         </div>
-                                        <h3 className="font-bold text-slate-800">{item.gida_ad}</h3>
-                                        <p className="text-sm text-slate-400 font-medium mb-4">{item.miktar}</p>
-                                        <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                                            <div className="flex items-center gap-1.5 text-slate-400">
-                                                <Calendar size={12} />
-                                                <span className="text-[11px] font-bold uppercase tracking-tighter">{item.skt}</span>
-                                            </div>
-                                            <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${kritik ? 'bg-rose-50 text-rose-600 animate-pulse' : 'bg-slate-50 text-slate-500'}`}>
-                                                {kalan <= 0 ? 'TÜKETİLMELİ' : `${kalan} GÜN`}
+                                        <h3 className="font-bold text-slate-800">{u.gida_ad}</h3>
+                                        <p className="text-xs text-slate-400 font-medium">{u.miktar} • {u.saklama_yeri}</p>
+                                        <div className="mt-4 pt-4 border-t border-slate-50 flex justify-between items-center">
+                                            <span className={`text-xs font-bold ${gun <= 3 ? 'text-rose-500' : 'text-slate-600'}`}>
+                                                {gun <= 0 ? "SÜRESİ DOLDU" : `${gun} Gün Kaldı`}
                                             </span>
+                                            {gun <= 3 && <AlertTriangle size={14} className="text-rose-500" />}
                                         </div>
                                     </div>
                                 );
                             })}
-                            {envanter.length === 0 && (
-                                <div className="col-span-full py-20 bg-slate-50/50 rounded-[40px] border-2 border-dashed border-slate-100 text-center">
-                                    <Package className="mx-auto text-slate-200 mb-2" size={40} />
-                                    <p className="text-slate-400 font-bold text-sm tracking-wide">Henüz mutfağınıza bir şey eklemediniz.</p>
-                                </div>
-                            )}
                         </div>
                     </div>
-                ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                        <div className="lg:col-span-4">
-                            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                                <h2 className="text-lg font-bold mb-6 flex items-center gap-2 text-indigo-600">
-                                    <Database size={18} /> Yeni Gıda Tanımla
-                                </h2>
-                                <form onSubmit={rehberEkle} className="space-y-4">
-                                    <input
-                                        placeholder="Ürün Adı"
-                                        className="w-full p-3 bg-slate-50 rounded-xl font-bold border border-transparent focus:border-indigo-100 outline-none"
-                                        value={yeniGida.ad}
-                                        onChange={e => setYeniGida({ ...yeniGida, ad: e.target.value })}
-                                        required
-                                    />
-                                    <input
-                                        placeholder="Birim"
-                                        className="w-full p-3 bg-slate-50 rounded-xl font-bold outline-none"
-                                        value={yeniGida.birim}
-                                        onChange={e => setYeniGida({ ...yeniGida, birim: e.target.value })}
-                                        required
-                                    />
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <div>
-                                            <label className="text-[9px] font-black text-slate-400 uppercase text-center block">Dolap</label>
-                                            <input type="number" placeholder="Gün" className="w-full p-2 bg-slate-50 rounded-lg text-center font-bold text-sm" value={yeniGida.dolap} onChange={e => setYeniGida({ ...yeniGida, dolap: e.target.value })} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] font-black text-slate-400 uppercase text-center block">Buzluk</label>
-                                            <input type="number" placeholder="Gün" className="w-full p-2 bg-slate-50 rounded-lg text-center font-bold text-sm" value={yeniGida.buzluk} onChange={e => setYeniGida({ ...yeniGida, buzluk: e.target.value })} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] font-black text-slate-400 uppercase text-center block">Kiler</label>
-                                            <input type="number" placeholder="Gün" className="w-full p-2 bg-slate-50 rounded-lg text-center font-bold text-sm" value={yeniGida.kiler} onChange={e => setYeniGida({ ...yeniGida, kiler: e.target.value })} />
-                                        </div>
-                                    </div>
-                                    <button className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold hover:bg-indigo-700 transition-all">
-                                        Rehbere Ekle
-                                    </button>
-                                </form>
-                            </div>
+                )}
+
+                {aktifSekme === 'ayarlar' && (
+                    <div className="max-w-4xl mx-auto bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+                        <div className="p-6 border-b border-slate-50 bg-slate-50/50">
+                            <h2 className="font-bold">Kütüphane Yönetimi</h2>
                         </div>
-                        <div className="lg:col-span-8 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                            <table className="w-full text-left">
-                                <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                    <tr>
-                                        <th className="p-5">Gıda / Birim</th>
-                                        <th className="p-5 text-center">Dolap</th>
-                                        <th className="p-5 text-center">Buzluk</th>
-                                        <th className="p-5 text-center">Kiler</th>
+                        <form onSubmit={kütüphaneyeEkle} className="p-6 grid grid-cols-1 md:grid-cols-5 gap-3 border-b border-slate-50">
+                            <input placeholder="Gıda Adı" className="md:col-span-2 p-3 border rounded-xl" value={yeniGida.ad} onChange={e => setYeniGida({ ...yeniGida, ad: e.target.value })} />
+                            <input placeholder="Dolap (Gün)" type="number" className="p-3 border rounded-xl" value={yeniGida.dolap} onChange={e => setYeniGida({ ...yeniGida, dolap: e.target.value })} />
+                            <input placeholder="Buzluk (Gün)" type="number" className="p-3 border rounded-xl" value={yeniGida.buzluk} onChange={e => setYeniGida({ ...yeniGida, buzluk: e.target.value })} />
+                            <button className="bg-slate-900 text-white rounded-xl font-bold"><Plus size={20} className="mx-auto" /></button>
+                        </form>
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50 text-[10px] uppercase text-slate-400 font-black">
+                                <tr>
+                                    <th className="p-4">Gıda</th>
+                                    <th className="p-4 text-center">Dolap</th>
+                                    <th className="p-4 text-center">Buzluk</th>
+                                    <th className="p-4 text-center">Kiler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Object.values(gidaVeritabani).map(g => (
+                                    <tr key={g.id} className="border-b border-slate-50 text-sm">
+                                        <td className="p-4 font-bold text-slate-700">{g.ad} <span className="text-[10px] text-slate-400 font-normal">({g.birim})</span></td>
+                                        <td className="p-4 text-center text-blue-600 font-bold">{g.dolap_omru || '-'}</td>
+                                        <td className="p-4 text-center text-cyan-600 font-bold">{g.buzluk_omru || '-'}</td>
+                                        <td className="p-4 text-center text-amber-600 font-bold">{g.kiler_omru || '-'}</td>
                                     </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {kutuphane.map(g => (
-                                        <tr key={g.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="p-5 font-bold text-slate-700">
-                                                {g.ad} <span className="text-[10px] text-slate-300 ml-1">({g.birim})</span>
-                                            </td>
-                                            <td className="p-5 text-center text-xs font-bold text-emerald-600">{g.dolap_omru || '-'} G</td>
-                                            <td className="p-5 text-center text-xs font-bold text-blue-500">{g.buzluk_omru || '-'} G</td>
-                                            <td className="p-5 text-center text-xs font-bold text-amber-500">{g.kiler_omru || '-'} G</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </main>
