@@ -1,5 +1,11 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Calendar, AlertTriangle, CheckCircle, Utensils, Pencil, Save, X, Snowflake, Sun, Thermometer, ChefHat, BookOpen, Clock, Coffee, Soup, Salad, Carrot, ArrowRight } from 'lucide-react';
+import {
+    Plus, Trash2, Calendar, AlertTriangle, CheckCircle,
+    Utensils, Pencil, Save, X, Snowflake, Sun,
+    Thermometer, ChefHat, BookOpen, Clock, Coffee,
+    Soup, Salad, Carrot, ArrowRight, ChevronDown,
+    Package, LayoutGrid, ListFilter
+} from 'lucide-react';
 
 // --- GIDA VERİTABANI ---
 const GIDA_VERITABANI = {
@@ -35,6 +41,7 @@ export default function App() {
     const [urunler, setUrunler] = useState([
         { id: 1, ad: "Süt (Açılmış)", miktar: "1 Litre", saklamaYeri: "dolap", skt: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] },
         { id: 2, ad: "Yumurta", miktar: "4 Adet", saklamaYeri: "dolap", skt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] },
+        { id: 3, ad: "Kıyma", miktar: "1 kg", saklamaYeri: "buzluk", skt: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] },
     ]);
 
     const [secilenUrunKey, setSecilenUrunKey] = useState("");
@@ -62,7 +69,7 @@ export default function App() {
         const yeni = {
             id: Date.now(),
             ad: secilenUrunKey,
-            miktar: `${miktar} ${GIDA_VERITABANI[secilenUrunKey]?.birim || ''}`,
+            miktar: `${miktar || 1} ${GIDA_VERITABANI[secilenUrunKey]?.birim || ''}`,
             saklamaYeri,
             skt: manuelTarih
         };
@@ -80,129 +87,209 @@ export default function App() {
     const kalanGun = (t) => Math.ceil((new Date(t) - new Date().setHours(0, 0, 0, 0)) / 86400000);
 
     return (
-        <div className="min-h-screen w-full bg-slate-50 flex flex-col overflow-x-hidden">
+        <div className="min-h-screen w-full bg-[#F8FAFC] flex flex-col overflow-x-hidden font-sans text-slate-900">
             <style dangerouslySetInnerHTML={{
                 __html: `
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        
         body, html, #root { 
           margin: 0 !important; 
           padding: 0 !important; 
           width: 100% !important; 
           max-width: none !important; 
-          display: block !important;
+          font-family: 'Plus Jakarta Sans', sans-serif !important;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .glass-card {
+          background: rgba(255, 255, 255, 0.8);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.3);
         }
       `}} />
 
-            <header className="w-full bg-indigo-700 text-white p-6 shadow-lg flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <div className="bg-white/20 p-2 rounded-xl">
-                        <ChefHat className="w-8 h-8" />
+            {/* Header */}
+            <header className="w-full bg-white border-b border-slate-100 px-8 py-5 flex justify-between items-center sticky top-0 z-[60]">
+                <div className="flex items-center gap-4">
+                    <div className="bg-indigo-600 p-2.5 rounded-2xl shadow-lg shadow-indigo-100">
+                        <ChefHat className="w-7 h-7 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black uppercase tracking-tighter">Akıllı Mutfak</h1>
-                        <p className="text-indigo-100 text-xs font-bold opacity-75">STOK TAKİP SİSTEMİ</p>
+                        <h1 className="text-xl font-bold tracking-tight text-slate-900">Mutfak Paneli</h1>
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <p className="text-slate-400 text-[11px] font-semibold uppercase tracking-widest">Sistem Aktif</p>
+                        </div>
                     </div>
                 </div>
-                <div className="bg-indigo-800/50 px-4 py-2 rounded-full border border-white/10 hidden md:block">
-                    <span className="text-sm font-bold">{urunler.length} Aktif Ürün</span>
+
+                <div className="flex items-center gap-6">
+                    <div className="hidden sm:flex flex-col items-end">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Toplam Envanter</span>
+                        <span className="text-lg font-extrabold text-indigo-600 leading-none">{urunler.length} Ürün</span>
+                    </div>
+                    <div className="h-10 w-[1px] bg-slate-100 hidden sm:block"></div>
+                    <button className="bg-slate-50 hover:bg-slate-100 p-2.5 rounded-xl transition-all border border-slate-200">
+                        <LayoutGrid size={20} className="text-slate-600" />
+                    </button>
                 </div>
             </header>
 
-            <nav className="w-full flex bg-white border-b sticky top-0 z-50">
-                {['liste', 'plan'].map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => setAktifSekme(tab)}
-                        className={`flex-1 py-4 text-sm font-black uppercase transition-all border-b-4 ${aktifSekme === tab ? 'border-indigo-600 text-indigo-600 bg-indigo-50/30' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                    >
-                        {tab === 'liste' ? 'Envanter' : 'Tüketim Planı'}
-                    </button>
-                ))}
-            </nav>
+            {/* Navigation */}
+            <div className="w-full px-8 mt-6">
+                <nav className="inline-flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100">
+                    {[
+                        { id: 'liste', label: 'Envanter', icon: Package },
+                        { id: 'plan', label: 'Tüketim Planı', icon: ListFilter }
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setAktifSekme(tab.id)}
+                            className={`flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${aktifSekme === tab.id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                        >
+                            <tab.icon size={18} />
+                            {tab.label}
+                        </button>
+                    ))}
+                </nav>
+            </div>
 
-            <main className="flex-1 w-full p-4 md:p-8">
+            <main className="flex-1 w-full p-8 pt-6">
 
                 {aktifSekme === 'liste' && (
-                    <div className="flex flex-col lg:flex-row gap-8 w-full max-w-[1600px] mx-auto">
-                        <div className="w-full lg:w-96 shrink-0">
-                            <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-200 sticky top-24">
-                                <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2 uppercase">
-                                    <Plus className="text-indigo-600" /> Ürün Ekle
-                                </h2>
-                                <form onSubmit={urunEkle} className="space-y-4">
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Gıda Seçimi</label>
-                                        <select className="w-full p-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all" value={secilenUrunKey} onChange={(e) => setSecilenUrunKey(e.target.value)}>
-                                            <option value="">Seçiniz...</option>
-                                            {Object.keys(GIDA_VERITABANI).map(k => <option key={k} value={k}>{k}</option>)}
-                                        </select>
+                    <div className="flex flex-col xl:flex-row gap-10 w-full max-w-[1600px] mx-auto">
+
+                        {/* Form Section */}
+                        <div className="w-full xl:w-[400px] shrink-0">
+                            <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 sticky top-32">
+                                <div className="mb-8">
+                                    <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Ürün Ekle</h2>
+                                    <p className="text-slate-400 text-sm mt-1">Stoklarınıza yeni bir gıda ekleyin.</p>
+                                </div>
+
+                                <form onSubmit={urunEkle} className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1">Gıda Türü</label>
+                                        <div className="relative group">
+                                            <select
+                                                className="w-full appearance-none p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-semibold text-slate-700 cursor-pointer"
+                                                value={secilenUrunKey}
+                                                onChange={(e) => setSecilenUrunKey(e.target.value)}
+                                            >
+                                                <option value="">Ürün Seçiniz...</option>
+                                                {Object.keys(GIDA_VERITABANI).sort().map(k => <option key={k} value={k}>{k}</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:rotate-180 transition-transform" size={18} />
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Saklama Alanı</label>
-                                        <div className="grid grid-cols-3 gap-2 mt-1">
+
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1">Saklama Alanı</label>
+                                        <div className="flex p-1.5 bg-slate-50 rounded-2xl border border-slate-100">
                                             {['dolap', 'buzluk', 'kiler'].map(t => (
-                                                <button key={t} type="button" onClick={() => setSaklamaYeri(t)} className={`py-2 rounded-xl text-[10px] font-bold uppercase transition-colors ${saklamaYeri === t ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-400'}`}>{t}</button>
+                                                <button
+                                                    key={t}
+                                                    type="button"
+                                                    onClick={() => setSaklamaYeri(t)}
+                                                    className={`flex-1 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${saklamaYeri === t ? 'bg-white text-indigo-600 shadow-sm border border-indigo-100' : 'text-slate-400 hover:text-slate-600'}`}
+                                                >
+                                                    {t}
+                                                </button>
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Miktar</label>
-                                            <input type="number" placeholder="0" className="w-full p-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none" value={miktar} onChange={e => setMiktar(e.target.value)} />
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1">Miktar</label>
+                                            <input
+                                                type="number"
+                                                placeholder="1"
+                                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-semibold"
+                                                value={miktar}
+                                                onChange={e => setMiktar(e.target.value)}
+                                            />
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-black text-slate-400 uppercase ml-1">SKT</label>
-                                            <input type="date" className="w-full p-3.5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none text-xs" value={manuelTarih} onChange={e => setManuelTarih(e.target.value)} />
+                                        <div className="space-y-2">
+                                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1">Son Tarih</label>
+                                            <input
+                                                type="date"
+                                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-semibold text-xs"
+                                                value={manuelTarih}
+                                                onChange={e => setManuelTarih(e.target.value)}
+                                            />
                                         </div>
                                     </div>
-                                    <button className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 uppercase tracking-wider">Stoka Dahil Et</button>
+
+                                    <button className="w-full bg-slate-900 text-white py-5 rounded-[20px] font-bold shadow-xl shadow-slate-200 hover:bg-slate-800 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
+                                        <Plus size={20} />
+                                        Stoka Kaydet
+                                    </button>
                                 </form>
                             </div>
                         </div>
 
+                        {/* List Section */}
                         <div className="flex-1">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
                                 {urunler.map(u => {
                                     const k = kalanGun(u.skt);
                                     const isEditing = duzenlemeId === u.id;
+                                    const isCritical = k <= 2;
 
                                     return (
-                                        <div key={u.id} className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm group hover:shadow-md transition-all relative overflow-hidden">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className={`p-3 rounded-2xl ${k <= 2 ? 'bg-rose-50 text-rose-500' : 'bg-indigo-50 text-indigo-500'}`}>
-                                                    {u.saklamaYeri === 'buzluk' ? <Snowflake size={20} /> : <Thermometer size={20} />}
+                                        <div key={u.id} className={`group bg-white p-6 rounded-[32px] border transition-all duration-300 relative ${isCritical ? 'border-rose-100 shadow-rose-50/50 shadow-xl' : 'border-slate-100 hover:shadow-xl hover:shadow-slate-200/50'}`}>
+                                            <div className="flex justify-between items-start mb-6">
+                                                <div className={`p-4 rounded-[22px] transition-colors ${isCritical ? 'bg-rose-50 text-rose-500' : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'}`}>
+                                                    {u.saklamaYeri === 'buzluk' ? <Snowflake size={22} /> : u.saklamaYeri === 'dolap' ? <Thermometer size={22} /> : <Sun size={22} />}
                                                 </div>
-                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                                    <button onClick={() => setDuzenlemeId(isEditing ? null : u.id)} className="p-2 text-slate-300 hover:text-indigo-500">
+                                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all translate-y-2 group-hover:translate-y-0">
+                                                    <button onClick={() => setDuzenlemeId(isEditing ? null : u.id)} className="p-2.5 bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl transition-all border border-slate-100">
                                                         {isEditing ? <X size={18} /> : <Pencil size={18} />}
                                                     </button>
-                                                    <button onClick={() => urunSil(u.id)} className="p-2 text-slate-300 hover:text-rose-500">
+                                                    <button onClick={() => urunSil(u.id)} className="p-2.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl transition-all border border-slate-100">
                                                         <Trash2 size={18} />
                                                     </button>
                                                 </div>
                                             </div>
 
-                                            <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">{u.ad}</h3>
-                                            <p className="text-sm font-bold text-slate-400">{u.miktar}</p>
+                                            <div className="space-y-1">
+                                                <h3 className="font-extrabold text-slate-800 text-xl tracking-tight leading-tight">{u.ad}</h3>
+                                                <div className="flex items-center gap-2">
+                                                    <Package size={14} className="text-slate-300" />
+                                                    <p className="text-sm font-bold text-slate-400 italic">{u.miktar}</p>
+                                                </div>
+                                            </div>
 
-                                            <div className="mt-4 pt-4 border-t border-slate-50">
+                                            <div className="mt-8 pt-5 border-t border-slate-50">
                                                 {isEditing ? (
-                                                    <div className="space-y-2">
-                                                        <label className="text-[9px] font-black text-indigo-500 uppercase">Tarih Güncelle</label>
-                                                        <div className="flex gap-2">
-                                                            <input
-                                                                type="date"
-                                                                className="flex-1 p-2 bg-indigo-50 border-none rounded-lg text-xs font-bold outline-none"
-                                                                defaultValue={u.skt}
-                                                                onBlur={(e) => tarihGuncelle(u.id, e.target.value)}
-                                                            />
-                                                        </div>
+                                                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                                                        <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2 block">Yeni Tarih Belirle</label>
+                                                        <input
+                                                            type="date"
+                                                            className="w-full p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                                            defaultValue={u.skt}
+                                                            onChange={(e) => tarihGuncelle(u.id, e.target.value)}
+                                                        />
                                                     </div>
                                                 ) : (
                                                     <div className="flex justify-between items-center">
-                                                        <span className="text-[10px] font-black uppercase text-slate-300">Durum</span>
-                                                        <span className={`text-xs font-black uppercase ${k <= 2 ? 'text-rose-500 animate-pulse' : 'text-emerald-500'}`}>
-                                                            {k <= 0 ? 'SÜRESİ DOLDU' : `${k} GÜN KALDI`}
-                                                        </span>
+                                                        <div>
+                                                            <span className="text-[10px] font-bold uppercase text-slate-400 block mb-0.5 tracking-wider">Durum</span>
+                                                            <span className={`text-[13px] font-extrabold tracking-tight ${isCritical ? 'text-rose-500' : 'text-slate-700'}`}>
+                                                                {k <= 0 ? 'SÜRESİ DOLDU' : `${k} Gün Kaldı`}
+                                                            </span>
+                                                        </div>
+                                                        {isCritical && (
+                                                            <div className="bg-rose-100 text-rose-600 p-2 rounded-lg animate-bounce">
+                                                                <AlertTriangle size={16} />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -215,27 +302,45 @@ export default function App() {
                 )}
 
                 {aktifSekme === 'plan' && (
-                    <div className="w-full max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {['Acil Tüketilmesi Gerekenler', 'Yakında Bitecekler', 'Uzun Vadeli Stok'].map((day, idx) => {
-                            let filtered = [];
-                            if (idx === 0) filtered = urunler.filter(u => kalanGun(u.skt) <= 3);
-                            if (idx === 1) filtered = urunler.filter(u => kalanGun(u.skt) > 3 && kalanGun(u.skt) <= 7);
-                            if (idx === 2) filtered = urunler.filter(u => kalanGun(u.skt) > 7);
+                    <div className="w-full max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {[
+                            { title: 'Acil Tüketilmesi Gerekenler', color: 'rose', days: [0, 3] },
+                            { title: 'Yakında Bitecekler', color: 'amber', days: [4, 7] },
+                            { title: 'Uzun Vadeli Stok', color: 'emerald', days: [8, 999] }
+                        ].map((cat, idx) => {
+                            const filtered = urunler.filter(u => {
+                                const k = kalanGun(u.skt);
+                                return k >= cat.days[0] && k <= cat.days[1];
+                            });
 
                             return (
-                                <div key={day} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
-                                    <h3 className="text-xl font-black text-slate-800 mb-6 uppercase italic tracking-tighter border-b pb-2">{day}</h3>
-                                    <div className="space-y-3">
+                                <div key={cat.title} className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm flex flex-col h-fit">
+                                    <div className="flex items-center justify-between mb-8">
+                                        <h3 className="text-lg font-extrabold text-slate-800 tracking-tight leading-tight">{cat.title}</h3>
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black bg-${cat.color}-50 text-${cat.color}-600 uppercase border border-${cat.color}-100`}>
+                                            {filtered.length}
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-4">
                                         {filtered.length > 0 ? filtered.map(u => (
-                                            <div key={u.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-indigo-50 transition-colors">
-                                                <span className="font-bold text-slate-700">{u.ad}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-black text-slate-400 italic">{u.skt}</span>
-                                                    <ArrowRight size={16} className="text-slate-300" />
+                                            <div key={u.id} className="group flex items-center justify-between p-5 bg-slate-50 rounded-[24px] hover:bg-white hover:shadow-md hover:scale-[1.02] transition-all cursor-default border border-transparent hover:border-slate-100">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-slate-700">{u.ad}</span>
+                                                    <span className="text-[10px] font-medium text-slate-400 italic">{u.miktar}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`text-[11px] font-black bg-white px-3 py-1 rounded-lg shadow-sm border border-slate-100 text-slate-500`}>
+                                                        {u.skt}
+                                                    </span>
+                                                    <ArrowRight size={16} className="text-slate-300 group-hover:text-indigo-500 transition-colors" />
                                                 </div>
                                             </div>
                                         )) : (
-                                            <p className="text-slate-300 text-xs font-bold uppercase py-4">Bu kategori için ürün yok.</p>
+                                            <div className="py-12 flex flex-col items-center justify-center opacity-40">
+                                                <Package size={40} className="text-slate-300 mb-2" />
+                                                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Ürün Bulunmuyor</p>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -246,8 +351,14 @@ export default function App() {
 
             </main>
 
-            <footer className="w-full bg-slate-900 text-slate-500 p-6 text-center text-[10px] font-bold uppercase tracking-widest">
-                Smart Kitchen Assistant © 2024 - Sıfır Atık, Maksimum Lezzet
+            <footer className="w-full mt-auto bg-white border-t border-slate-100 p-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Akıllı Mutfak Yönetim Paneli v2.4</span>
+                </div>
+                <div className="text-slate-300 text-[10px] font-bold uppercase tracking-[0.2em]">
+                    Sıfır Atık • Maksimum Verim • Modern Stok
+                </div>
             </footer>
         </div>
     );
