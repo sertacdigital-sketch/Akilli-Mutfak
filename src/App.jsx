@@ -75,7 +75,7 @@ export default function App() {
                         <ChefHat className="text-white w-4 h-4" />
                     </div>
                     <h1 className="text-[10px] font-black text-white tracking-[0.2em] uppercase italic whitespace-nowrap overflow-hidden text-ellipsis">
-                        MUTFAK<span className="text-indigo-400">PRO</span>
+                        MUTFAK<span className="text-indigo-50">PRO</span>
                     </h1>
                 </div>
 
