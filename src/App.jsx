@@ -2,8 +2,7 @@
 import { supabase } from './lib/supabaseClient';
 import {
     Plus, Minus, Trash2, Snowflake, Thermometer, Sun,
-    Search, ChefHat, LayoutDashboard, Database,
-    Package, CheckCircle2, ChevronRight, Calendar
+    Search, ChefHat, Package, CheckCircle2, Calendar, Edit3, Save, X
 } from 'lucide-react';
 
 export default function App() {
@@ -19,7 +18,8 @@ export default function App() {
     const [miktarDegeri, setMiktarDegeri] = useState(1);
     const [sktTarihi, setSktTarihi] = useState("");
 
-    // Kütüphane Formu
+    // Kütüphane Formu & Düzenleme
+    const [duzenlemeModu, setDuzenlemeModu] = useState(null);
     const [yeniGida, setYeniGida] = useState({
         ad: "", birim: "Adet", dolap_omru: "", buzluk_omru: "", kiler_omru: ""
     });
@@ -41,16 +41,22 @@ export default function App() {
         setLoading(false);
     };
 
+    // Dinamik Step (Adım) Hesaplama
+    const getStep = () => {
+        const birim = gidaVeritabani[secilenGidaAd]?.birim;
+        if (birim === 'Kg') return 0.1;
+        if (birim === 'Gr') return 50;
+        return 1;
+    };
+
     // Otomatik SKT Hesaplama
     useEffect(() => {
         if (secilenGidaAd && gidaVeritabani[secilenGidaAd]) {
             const gida = gidaVeritabani[secilenGidaAd];
             const omur = gida[`${saklamaYeri}_omru`] || 0;
-            if (omur > 0) {
-                const bugun = new Date();
-                bugun.setDate(bugun.getDate() + parseInt(omur));
-                setSktTarihi(bugun.toISOString().split('T')[0]);
-            }
+            const bugun = new Date();
+            bugun.setDate(bugun.getDate() + parseInt(omur));
+            setSktTarihi(bugun.toISOString().split('T')[0]);
         }
     }, [secilenGidaAd, saklamaYeri, gidaVeritabani]);
 
@@ -59,19 +65,33 @@ export default function App() {
         if (!secilenGidaAd || !sktTarihi) return;
         const birim = gidaVeritabani[secilenGidaAd]?.birim || '';
         const { error } = await supabase.from('mutfak_envanteri').insert([{
-            gida_ad: secilenGidaAd, miktar: `${miktarDegeri} ${birim}`, saklama_yeri: saklamaYeri, skt: sktTarihi
+            gida_ad: secilenGidaAd,
+            miktar: `${miktarDegeri} ${birim}`,
+            saklama_yeri: saklamaYeri,
+            skt: sktTarihi
         }]);
         if (!error) { setSecilenGidaAd(""); setMiktarDegeri(1); verileriGetir(); }
     };
 
-    const kütüphaneEkle = async (e) => {
+    const kütüphaneKaydet = async (e) => {
         e.preventDefault();
         if (!yeniGida.ad) return;
-        const { error } = await supabase.from('gida_kutuphanesi').insert([yeniGida]);
-        if (!error) {
-            setYeniGida({ ad: "", birim: "Adet", dolap_omru: "", buzluk_omru: "", kiler_omru: "" });
-            verileriGetir();
+
+        if (duzenlemeModu) {
+            const { error } = await supabase.from('gida_kutuphanesi').update(yeniGida).eq('id', duzenlemeModu);
+            if (!error) { setDuzenlemeModu(null); }
+        } else {
+            await supabase.from('gida_kutuphanesi').insert([yeniGida]);
         }
+
+        setYeniGida({ ad: "", birim: "Adet", dolap_omru: "", buzluk_omru: "", kiler_omru: "" });
+        verileriGetir();
+    };
+
+    const duzenleBaslat = (gida) => {
+        setDuzenlemeModu(gida.id);
+        setYeniGida(gida);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     if (loading) return <div className="h-screen w-full flex items-center justify-center bg-[#020617] text-indigo-500 font-black animate-pulse tracking-[0.3em]">YÜKLENİYOR...</div>;
@@ -107,54 +127,49 @@ export default function App() {
                                 <div className="flex items-center gap-2 mb-8 text-indigo-400 font-black uppercase text-xs tracking-widest"><Package size={18} /> <span>Stok Girişi</span></div>
 
                                 <form onSubmit={envanterEkle} className="space-y-8">
-                                    {/* Ürün Seçimi */}
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Ürün Seç</label>
-                                        <select className="w-full h-16 bg-black border-2 border-white/5 rounded-2xl px-6 text-base font-black text-white outline-none focus:border-indigo-500 shadow-inner appearance-none cursor-pointer" value={secilenGidaAd} onChange={e => setSecilenGidaAd(e.target.value)}>
+                                        <select className="w-full h-16 bg-black border-2 border-white/5 rounded-2xl px-6 text-base font-black text-white outline-none focus:border-indigo-500 appearance-none cursor-pointer" value={secilenGidaAd} onChange={e => { setSecilenGidaAd(e.target.value); setMiktarDegeri(1); }}>
                                             <option value="">Seçiniz...</option>
                                             {Object.keys(gidaVeritabani).sort().map(k => <option key={k} value={k}>{k}</option>)}
                                         </select>
                                     </div>
 
-                                    {/* MODERN MİKTAR STEPPER */}
+                                    {/* DİNAMİK MİKTAR STEPPER */}
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Miktar Ayarla</label>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Miktar ({gidaVeritabani[secilenGidaAd]?.birim || 'Birim'})</label>
                                         <div className="flex items-center justify-between bg-black p-2 rounded-3xl border-2 border-white/5 focus-within:border-indigo-500 transition-all">
-                                            <button type="button" onClick={() => setMiktarDegeri(v => Math.max(1, v - 1))} className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white hover:bg-rose-600 transition-all active:scale-90"><Minus size={24} strokeWidth={3} /></button>
+                                            <button type="button" onClick={() => setMiktarDegeri(v => Math.max(0, parseFloat((v - getStep()).toFixed(2))))} className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white hover:bg-rose-600 active:scale-90"><Minus size={24} /></button>
                                             <div className="flex flex-col items-center">
-                                                <input type="number" className="bg-transparent text-center text-4xl font-black text-white w-24 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={miktarDegeri} onChange={e => setMiktarDegeri(parseInt(e.target.value) || 0)} />
-                                                <span className="text-[10px] font-bold text-indigo-400 uppercase">{gidaVeritabani[secilenGidaAd]?.birim || 'Birim'}</span>
+                                                <input type="number" step={getStep()} className="bg-transparent text-center text-3xl font-black text-white w-28 outline-none" value={miktarDegeri} onChange={e => setMiktarDegeri(parseFloat(e.target.value) || 0)} />
                                             </div>
-                                            <button type="button" onClick={() => setMiktarDegeri(v => v + 1)} className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white hover:bg-emerald-600 transition-all active:scale-90"><Plus size={24} strokeWidth={3} /></button>
+                                            <button type="button" onClick={() => setMiktarDegeri(v => parseFloat((v + getStep()).toFixed(2)))} className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-white hover:bg-emerald-600 active:scale-90"><Plus size={24} /></button>
                                         </div>
                                     </div>
 
-                                    {/* Saklama Alanı */}
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Muhafaza Yeri</label>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Muhafaza & SKT</label>
                                         <div className="grid grid-cols-3 gap-2">
                                             {[
                                                 { id: 'dolap', icon: <Thermometer size={16} />, label: 'Dolap' },
                                                 { id: 'buzluk', icon: <Snowflake size={16} />, label: 'Buzluk' },
                                                 { id: 'kiler', icon: <Sun size={16} />, label: 'Kiler' }
                                             ].map(t => (
-                                                <button key={t.id} type="button" onClick={() => setSaklamaYeri(t.id)} className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${saklamaYeri === t.id ? 'bg-indigo-600 border-indigo-400 text-white shadow-xl' : 'bg-black border-white/5 text-slate-600 hover:border-white/20'}`}>
+                                                <button key={t.id} type="button" onClick={() => setSaklamaYeri(t.id)} className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${saklamaYeri === t.id ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-black border-white/5 text-slate-600'}`}>
                                                     {t.icon} <span className="text-[9px] font-black uppercase">{t.label}</span>
                                                 </button>
                                             ))}
                                         </div>
                                     </div>
 
-                                    {/* Tarih */}
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-slate-500 uppercase ml-2">Son Kullanma Tarihi</label>
                                         <div className="relative">
                                             <Calendar className="absolute left-5 top-1/2 -translate-y-1/2 text-indigo-400" size={18} />
                                             <input type="date" className="w-full h-16 pl-14 bg-black border-2 border-white/5 rounded-2xl text-sm font-black text-white outline-none focus:border-indigo-500" value={sktTarihi} onChange={e => setSktTarihi(e.target.value)} />
                                         </div>
                                     </div>
 
-                                    <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white h-16 rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all shadow-2xl shadow-indigo-900/40 active:scale-95 border-t border-white/20">KAYDET</button>
+                                    <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white h-16 rounded-2xl font-black text-xs uppercase tracking-[0.3em] transition-all active:scale-95 shadow-2xl shadow-indigo-900/40">KAYDET</button>
                                 </form>
                             </div>
                         </div>
@@ -168,19 +183,25 @@ export default function App() {
                                     return (
                                         <div key={u.id} className={`group p-6 rounded-[32px] border-2 transition-all duration-500 ${kritik ? 'bg-rose-600/10 border-rose-500/30 shadow-2xl' : 'bg-[#0F172A] border-white/5 hover:border-indigo-500/30'}`}>
                                             <div className="flex justify-between items-start mb-6">
-                                                <div className={`p-3 rounded-xl shadow-lg ${u.saklama_yeri === 'buzluk' ? 'bg-blue-600/20 text-blue-400' : u.saklama_yeri === 'dolap' ? 'bg-indigo-600/20 text-indigo-400' : 'bg-orange-600/20 text-orange-400'}`}>
+                                                <div className={`p-3 rounded-xl ${u.saklama_yeri === 'buzluk' ? 'bg-blue-600/20 text-blue-400' : u.saklama_yeri === 'dolap' ? 'bg-indigo-600/20 text-indigo-400' : 'bg-orange-600/20 text-orange-400'}`}>
                                                     {u.saklama_yeri === 'buzluk' ? <Snowflake size={20} /> : u.saklama_yeri === 'dolap' ? <Thermometer size={20} /> : <Sun size={20} />}
                                                 </div>
-                                                <button onClick={() => { if (window.confirm('Silinsin mi?')) supabase.from('mutfak_envanteri').delete().eq('id', u.id).then(verileriGetir); }} className="p-2 opacity-0 group-hover:opacity-100 text-slate-700 hover:text-rose-500 transition-all"><Trash2 size={18} /></button>
+                                                <button onClick={() => { if (window.confirm('Silinsin mi?')) supabase.from('mutfak_envanteri').delete().eq('id', u.id).then(verileriGetir); }} className="p-2 opacity-0 group-hover:opacity-100 text-slate-700 hover:text-rose-500"><Trash2 size={18} /></button>
                                             </div>
-                                            <h4 className="font-black text-white uppercase text-sm mb-2 truncate tracking-tight">{u.gida_ad}</h4>
-                                            <div className="flex items-center gap-2 mb-6 text-[10px] font-black text-slate-500 uppercase">
+                                            <h4 className="font-black text-white uppercase text-sm mb-2 truncate">{u.gida_ad}</h4>
+                                            <div className="flex items-center gap-2 mb-6 text-[10px] font-black uppercase">
                                                 <span className="bg-black px-3 py-1 rounded-lg border border-white/5 text-indigo-400">{u.miktar}</span>
-                                                <span>{u.saklama_yeri}</span>
+                                                <span className="text-slate-500">{u.saklama_yeri}</span>
                                             </div>
-                                            <div className="flex items-end justify-between pt-4 border-t border-white/5">
-                                                <div className="flex flex-col"><span className="text-[9px] font-bold text-slate-600 uppercase">Süre</span><span className={`text-xs font-black ${gun <= 0 ? 'text-rose-500' : 'text-slate-300'}`}>{gun <= 0 ? 'TÜKENDİ' : `${gun} Gün`}</span></div>
-                                                <div className={`w-2.5 h-2.5 rounded-full ${gun <= 0 ? 'bg-rose-600' : kritik ? 'bg-orange-500' : 'bg-emerald-500'}`}></div>
+                                            <div className="pt-4 border-t border-white/5 space-y-1">
+                                                <div className="flex justify-between text-[9px] font-bold text-slate-600 uppercase">
+                                                    <span>Durum</span>
+                                                    <span>SKT: {u.skt}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className={`text-xs font-black ${gun <= 0 ? 'text-rose-500' : 'text-slate-300'}`}>{gun <= 0 ? 'TÜKENDİ' : `${gun} GÜN KALDI`}</span>
+                                                    <div className={`w-2.5 h-2.5 rounded-full ${gun <= 0 ? 'bg-rose-600' : kritik ? 'bg-orange-500' : 'bg-emerald-500'}`}></div>
+                                                </div>
                                             </div>
                                         </div>
                                     );
@@ -192,30 +213,49 @@ export default function App() {
                     /* KÜTÜPHANE SAYFASI */
                     <div className="w-full grid grid-cols-1 xl:grid-cols-4 gap-10">
                         <div className="xl:col-span-1">
-                            <div className="bg-[#0F172A] p-8 rounded-[40px] border border-white/10 shadow-2xl">
-                                <div className="flex items-center gap-2 mb-8 text-emerald-400 font-black uppercase text-xs tracking-widest border-b border-white/5 pb-4"><CheckCircle2 size={18} /> <span>Yeni Tanımla</span></div>
-                                <form onSubmit={kütüphaneEkle} className="space-y-6">
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase">Ürün Adı</label><input type="text" placeholder="..." className="w-full h-14 bg-black border-2 border-white/5 rounded-2xl px-5 text-sm font-black text-white outline-none focus:border-emerald-500 transition-all" value={yeniGida.ad} onChange={e => setYeniGida({ ...yeniGida, ad: e.target.value })} /></div>
-                                    <div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase">Birim</label><select className="w-full h-14 bg-black border-2 border-white/5 rounded-2xl px-5 text-sm font-black text-white outline-none" value={yeniGida.birim} onChange={e => setYeniGida({ ...yeniGida, birim: e.target.value })}><option value="Adet">Adet</option><option value="Kg">Kg</option><option value="Gr">Gr</option><option value="Litre">Litre</option><option value="Paket">Paket</option></select></div>
-                                    <div className="space-y-4 pt-4 border-t border-white/5 uppercase font-black text-[9px] text-slate-600">
+                            <div className="bg-[#0F172A] p-8 rounded-[40px] border border-white/10 shadow-2xl sticky top-28">
+                                <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
+                                    <div className="flex items-center gap-2 text-emerald-400 font-black uppercase text-xs tracking-widest">
+                                        {duzenlemeModu ? <Edit3 size={18} /> : <CheckCircle2 size={18} />}
+                                        <span>{duzenlemeModu ? 'Düzenle' : 'Yeni Tanımla'}</span>
+                                    </div>
+                                    {duzenlemeModu && <button onClick={() => { setDuzenlemeModu(null); setYeniGida({ ad: "", birim: "Adet", dolap_omru: "", buzluk_omru: "", kiler_omru: "" }) }} className="text-slate-500 hover:text-white"><X size={18} /></button>}
+                                </div>
+                                <form onSubmit={kütüphaneKaydet} className="space-y-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Ürün Adı</label>
+                                        <input type="text" className="w-full h-14 bg-black border-2 border-white/5 rounded-2xl px-5 text-sm font-black text-white outline-none focus:border-emerald-500" value={yeniGida.ad} onChange={e => setYeniGida({ ...yeniGida, ad: e.target.value })} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Ölçü Birimi</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {['Adet', 'Kg', 'Gr', 'Litre', 'Paket'].map(b => (
+                                                <button key={b} type="button" onClick={() => setYeniGida({ ...yeniGida, birim: b })} className={`py-2 rounded-xl text-[10px] font-bold border-2 transition-all ${yeniGida.birim === b ? 'bg-emerald-600 border-emerald-400 text-white' : 'bg-black border-white/5 text-slate-500'}`}>{b}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4 pt-4 border-t border-white/5">
                                         {['dolap', 'buzluk', 'kiler'].map(f => (
-                                            <div key={f} className="flex items-center justify-between bg-black p-4 rounded-2xl border border-white/5">
-                                                <span>{f} Ömrü (Gün)</span>
-                                                <input type="number" placeholder="0" className="bg-transparent w-12 text-sm text-white text-right outline-none" value={yeniGida[`${f}_omru`]} onChange={e => setYeniGida({ ...yeniGida, [`${f}_omru`]: e.target.value })} />
+                                            <div key={f} className="space-y-1">
+                                                <label className="text-[10px] font-black text-slate-500 uppercase ml-1">{f} Ömrü (Gün)</label>
+                                                <input type="number" className="w-full h-12 bg-black border-2 border-white/5 rounded-xl px-4 text-sm text-white outline-none focus:border-emerald-500" placeholder="0" value={yeniGida[`${f}_omru`]} onChange={e => setYeniGida({ ...yeniGida, [`${f}_omru`]: e.target.value })} />
                                             </div>
                                         ))}
                                     </div>
-                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white h-14 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95">KÜTÜPHANEYE EKLE</button>
+                                    <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white h-14 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95">
+                                        {duzenlemeModu ? 'GÜNCELLEMEYİ KAYDET' : 'KÜTÜPHANEYE EKLE'}
+                                    </button>
                                 </form>
                             </div>
                         </div>
+
                         <div className="xl:col-span-3">
                             <div className="bg-[#0F172A] rounded-[40px] border border-white/10 shadow-2xl overflow-hidden">
                                 <div className="p-6 border-b border-white/5 bg-black/30 font-black text-[10px] tracking-widest text-slate-500 uppercase flex justify-between"><span>Veritabanı</span> <span>{Object.keys(gidaVeritabani).length} Ürün</span></div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left text-white">
                                         <thead className="bg-black text-slate-600 uppercase text-[10px] font-black">
-                                            <tr><th className="p-6">Gıda / Birim</th><th className="p-6 text-center">Dolap</th><th className="p-6 text-center">Buzluk</th><th className="p-6 text-center">Kiler</th><th className="p-6 text-right">#</th></tr>
+                                            <tr><th className="p-6">Gıda / Birim</th><th className="p-6 text-center">Dolap</th><th className="p-6 text-center">Buzluk</th><th className="p-6 text-center">Kiler</th><th className="p-6 text-right">İşlemler</th></tr>
                                         </thead>
                                         <tbody className="divide-y divide-white/5 text-xs">
                                             {Object.values(gidaVeritabani).map(g => (
@@ -224,7 +264,10 @@ export default function App() {
                                                     <td className="p-6 text-center text-indigo-400">{g.dolap_omru || 0} G</td>
                                                     <td className="p-6 text-center text-blue-400">{g.buzluk_omru || 0} G</td>
                                                     <td className="p-6 text-center text-orange-400">{g.kiler_omru || 0} G</td>
-                                                    <td className="p-6 text-right"><button onClick={() => { if (window.confirm(`${g.ad} silinsin mi?`)) supabase.from('gida_kutuphanesi').delete().eq('id', g.id).then(verileriGetir); }} className="p-2 text-slate-800 hover:text-rose-500"><Trash2 size={16} /></button></td>
+                                                    <td className="p-6 text-right space-x-2">
+                                                        <button onClick={() => duzenleBaslat(g)} className="p-2 text-slate-500 hover:text-emerald-500 transition-all"><Edit3 size={16} /></button>
+                                                        <button onClick={() => { if (window.confirm(`${g.ad} silinsin mi?`)) supabase.from('gida_kutuphanesi').delete().eq('id', g.id).then(verileriGetir); }} className="p-2 text-slate-500 hover:text-rose-500 transition-all"><Trash2 size={16} /></button>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
