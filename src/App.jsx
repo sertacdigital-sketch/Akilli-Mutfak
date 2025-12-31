@@ -146,14 +146,6 @@ export default function App() {
                             </div>
                         </div>
 
-                        Harika bir fikir, özellikle çok fazla kart olduğunda ikonların neyi temsil ettiğini görmek kullanımı çok kolaylaştırır.
-
-                        Modern arayüzlerde bu tür bilgilendirmeler için Tooltip (İpucu Balonu) kullanılır. Kartların içindeki ikonların üzerine gelindiğinde (hover) "Dondurucu", "Buzdolabı" veya "Kiler" yazısı çıkacak şekilde kodu güncelledim.
-
-                        İşte ikonların üzerine "title" özelliği eklenmiş ve görsel olarak daha belirgin hale getirilmiş güncel kart yapısı:
-
-                        JavaScript
-
                         {/* KARTLAR ALANI - Tooltip Eklenmiş Hali */}
                         <div className="flex-1">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
